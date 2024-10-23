@@ -2,16 +2,15 @@
 
 require_once 'vendor/autoload.php';
 
-session_start();
-
-
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
+
+session_start();
 
 $client = new Google_Client();
 $client->setClientId(getenv('GOOGLE_CLIENT_ID')); // Use environment variable for Client ID
 $client->setClientSecret(getenv('GOOGLE_CLIENT_SECRET')); // Use environment variable for Client Secret
-$client->setRedirectUri('https://ahaofcourse.com/callback.php'); // Use your actual domain or test environment
+$client->setRedirectUri(getenv('GOOGLE_REDIRECT_URI')); // Use your actual domain or test environment
 
 // Handle the OAuth response
 if (isset($_GET['code'])) {
