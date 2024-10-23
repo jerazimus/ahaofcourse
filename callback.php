@@ -2,15 +2,14 @@
 
 require_once 'vendor/autoload.php';
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
-$dotenv->load();
+$config = parse_ini_file(__DIR__ . "/config.ini", true);
 
 session_start();
 
 $client = new Google_Client();
-$client->setClientId(getenv('GOOGLE_CLIENT_ID')); // Use environment variable for Client ID
-$client->setClientSecret(getenv('GOOGLE_CLIENT_SECRET')); // Use environment variable for Client Secret
-$client->setRedirectUri(getenv('GOOGLE_REDIRECT_URI')); // Use your actual domain or test environment
+$client->setClientId($config['gauth']['google_client_id']);
+$client->setClientSecret($config['gauth']['google_client_secret']);
+$client->setRedirectUri($config['gauth']['google_redirect_uri']);
 
 // Check if redirect URI is correctly set
 if (!$client->getRedirectUri()) {
