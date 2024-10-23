@@ -12,6 +12,12 @@ $client->setClientId(getenv('GOOGLE_CLIENT_ID')); // Use environment variable fo
 $client->setClientSecret(getenv('GOOGLE_CLIENT_SECRET')); // Use environment variable for Client Secret
 $client->setRedirectUri(getenv('GOOGLE_REDIRECT_URI')); // Use your actual domain or test environment
 
+// Check if redirect URI is correctly set
+if (!$client->getRedirectUri()) {
+    die('Redirect URI is not set correctly.');
+}
+
+
 // Handle the OAuth response
 if (isset($_GET['code'])) {
     // Exchange authorization code for access token
