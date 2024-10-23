@@ -39,7 +39,7 @@ $loginUrl = $client->createAuthUrl();
         }
 
         body {
-            background: linear-gradient(to bottom, #FFFBEE 16%, white 100%);
+            background: #FFFBEE;
         }
 
         .section-cta {
@@ -93,6 +93,7 @@ $loginUrl = $client->createAuthUrl();
             font-size: 1rem;
             font-weight: 700;
             line-height: 1.2;
+            text-decoration: none;
         }
 
         .secondary-button {
