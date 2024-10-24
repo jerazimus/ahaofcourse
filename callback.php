@@ -34,7 +34,7 @@ if (isset($_GET['code'])) {
     $_SESSION['user_name'] = $userInfo->name;
     
     // Redirect the user to the dashboard or any other protected page
-    header('Location: views/users/dashboard.php');
+    header('Location: /dashboard');
     exit;
 } else {
     // Handle the error if the user denied access or there was an issue
