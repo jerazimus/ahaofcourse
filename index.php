@@ -1,136 +1,117 @@
 <?php
 
 require_once 'vendor/autoload.php';
+require_once 'db.php'; 
 
+// Load configuration
 $config = parse_ini_file(__DIR__ . "/config.ini", true);
+session_start(); // Start the session
 
-session_start();
+try {
+    $pdo = new PDO('sqlite:' . $config["db"]["location"]); 
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Database connection failed: " . $e->getMessage());
+}
 
+// Get the requested URI
+$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+//echo "Requested URI: " . htmlspecialchars($uri) . "<br>";
+
+$protectedRoutes = ['/dashboard', '/courses', '/lessons']; // Add all protected routes here
+
+// Check for testing mode and set session values
+if ($config['env']['testing'] === '1') { // Compare to string "1"
+    // Set test user session if not already set
+    if (!isset($_SESSION['test_user'])) {
+        $_SESSION['test_user'] = [
+            'email' => 'jeremy@test.com',
+            'name' => 'Jeremy Test',
+        ];
+        echo "Test session set: ";
+        var_dump($_SESSION); // Output session data for debugging
+    }
+
+    // Only redirect if we're not already on the dashboard
+    if ($uri !== '/dashboard') {
+        echo "Redirecting to dashboard...";
+        header('Location: /dashboard'); // Redirect to the dashboard
+        exit; // Ensure no further execution
+    }
+} else {
+    //destroy test user
+    unset($_SESSION['test_user']);
+    session_destroy();
+}
+
+// Google Client Setup for production environment
 $client = new Google_Client();
 $client->setClientId($config['gauth']['google_client_id']);
 $client->setClientSecret($config['gauth']['google_client_secret']);
 $client->setRedirectUri($config['gauth']['google_redirect_uri']);
-
 $client->addScope('email');
 $client->addScope('profile');
 
-$loginUrl = $client->createAuthUrl();
+// Authentication Logic
+$loginUrl = null; // Initialize loginUrl variable
 
-?>
+if (!isset($_SESSION['user'])) {
+    // User not authenticated
+    if ($config['env']['testing'] !== '1') {
+        $loginUrl = $client->createAuthUrl();
+    } else {
+        logUserInDB($pdo, null, $_SESSION['test_user']['email'], $_SESSION['test_user']['name']);
+        $_SESSION['user'] = [
+            'email' => $_SESSION['test_user']['email'],
+            'name' => $_SESSION['test_user']['name'],
+            'google_id' => null // Set google_id to null for test users
+        ];
+    }
+} else {
+    // If the user is authenticated via Google, retrieve their information
+    // Here, you should check if the user has a Google ID
+    if (isset($_GET['code'])) { // Check if Google returned an authentication code
+        // Exchange the code for an access token
+        $token = $client->fetchAccessTokenWithAuthCode($_GET['code']);
+        $client->setAccessToken($token['access_token']);
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aha! Insights & Analytics</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lily+Script+One&display=swap" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Lily+Script+One&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            font-family: "Inter", sans-serif;
-        }
+        // Get user profile data
+        $googleOAuth = new Google_Service_Oauth2($client);
+        $googleUser = $googleOAuth->userinfo->get();
 
-        html {
-            font-size: 16px;
-        }
+        // Set user information in the session
+        $_SESSION['user'] = [
+            'email' => $googleUser->email,
+            'name' => $googleUser->name,
+            'google_id' => $googleUser->id // Store the Google ID
+        ];
 
-        body {
-            background: #FFFBEE;
-        }
+        // Log the user into the database
+        logUserInDB($pdo, $googleUser->id, $googleUser->email, $googleUser->name);
+    }
+}
 
-        .section-cta {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: start;
-            row-gap: 3rem;
-            padding: 4rem;
-            min-height: 600px;
-            max-width: 50rem;
-            min-width: 20rem;
-        }
 
-        .light-bulb{
-            font-size: 4rem;
-        }
+// Routing logic
+switch ($uri) {
+    case '/':
+        include 'views/main.php'; // Main page view
+        break;
+    case '/dashboard':
+        showDashboard($pdo, $loginUrl ?? null); //  null coalescing op checks if not nnull
+        break;
+    default:
+        echo '404 Not Found'; // Handle 404 errors
+        break;
+}
 
-        .logo {
-            font-family: "Lily Script One", system-ui;
-            font-size: 4rem;
-            font-weight: 400;
-            font-style: normal;
-            background: linear-gradient(to right, #FF8400, #AA00FF);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+function showDashboard($pdo, $loginUrl) {
+    if ($loginUrl === null) {
+        echo "TESTING MODE";
+        echo "User email: " . htmlspecialchars($_SESSION['test_user']['email']); // Display user info
+    } else {
+        echo "Please <a href=\"$loginUrl\">login</a> to access the dashboard.";
+    }
 
-        .sub-text {
-            font-size: 1.5rem;
-            font-weight: 600;
-            max-width: 75%;
-        }
-
-        .benefits {
-            display: flex;
-            flex-direction: column;
-            row-gap: 10px;
-            font-size: 1.1rem;
-            line-height: 1.6;
-        }
-
-        .primary-button {
-            height: 3rem;
-            text-align: center;
-            background: #00C20B;
-            border-radius: 0.6rem;
-            padding: 1rem;
-            border: none;
-            color: white;
-            font-size: 1rem;
-            font-weight: 700;
-            line-height: 1.2;
-            text-decoration: none;
-        }
-
-        .secondary-button {
-            height: 3rem;
-            text-align: center;
-            background: #E0E3E1;
-            border-radius: 0.6rem;
-            padding: 1rem;
-            border: none;
-            color: black;
-            font-size: 1rem;
-            font-weight: 700;
-            line-height: 1.2;
-        }
-    </style>
-</head>
-<body>
-    <div class="section-cta">
-        <div>
-            <p class="light-bulb">💡</p>
-            <h1 class="logo">Aha! Of Course</h1>
-            <h3 class="sub-text">Key Insight & Progression Tracking for Your Courses. Understand how your students engage with your content — wherever you host your course.</h3>
-        </div>
-            
-        <div class="benefits">
-            <p><strong>🐾 Track Progression:</strong> Understand where students are thriving and where they get stuck.</p>
-            <p><strong>📊 Get Customized Analytics:</strong> Tailored to your course, helping you improve your content.</p>
-            <p><strong>🔌 Seamless Integration:</strong> Works anywhere JavaScript embeds are supported!</p>
-        </div>
-        
-        <div>
-            <a href="<?php echo htmlspecialchars($loginUrl); ?>" class="primary-button">Continue with Google</a>
-            <button class="secondary-button">Pricing</button>
-        </div>
-    </div>
-</body>
-</html>
+    include 'views/users/dashboard.php'; // Include the actual dashboard view
+}
