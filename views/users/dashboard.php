@@ -27,7 +27,7 @@
 </head>
 <body>
     <h1>Welcome, <?= $userEmail ?></h1>
-    <p><a href="logout.php">Logout</a></p>
+    <p><a href="/logout">Logout</a></p>
 
 </body>
 </html>

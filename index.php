@@ -100,7 +100,11 @@ switch ($uri) {
     case '/dashboard':
         showDashboard($pdo, $loginUrl ?? null); //  null coalescing op checks if not nnull
         break;
+    case '/logout':
+        include 'logout.php'; // Include the logout script
+        break;
     default:
+        http_response_code(404);
         echo '404 Not Found'; // Handle 404 errors
         break;
 }
